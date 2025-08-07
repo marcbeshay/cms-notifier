@@ -1,4 +1,4 @@
-# CMS Change Notifier
+# CMS Notifier
 
 A Python script that monitors GUC CMS course pages for changes and sends notifications when new files are added or course descriptions are updated.
 

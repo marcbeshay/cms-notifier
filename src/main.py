@@ -328,7 +328,7 @@ def notify_files_change(
 
 
 # Main monitoring loop
-print("🔍 Starting CMS change notifier...")
+print("🔍 Starting CMS notifier...")
 courses = fetch_all_courses()
 
 if not courses:
