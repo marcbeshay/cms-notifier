@@ -210,10 +210,15 @@ def load_files_version(course_id: int) -> list[dict[str, str]]:
 def diff_description(old_description: str, new_description: str) -> tuple[str, str]:
     """Use AI to analyze description changes and generate notification title and body."""
 
-    if not new_description and not old_description:
+    if not old_description and not new_description:
         return (
             "New Course Created",
             "A new course has been created. Check the course page for details.",
+        )
+    if not old_description:
+        return (
+            "New Description Added",
+            "Description has been added. Check the course page for details.",
         )
     if not new_description:
         return "Description Removed", "The course description has been removed."
@@ -225,7 +230,7 @@ def diff_description(old_description: str, new_description: str) -> tuple[str, s
         prompt = f"""A course description has been updated. Analyze the changes and generate a concise notification title (max 50 chars) and body (max 200 chars) that highlights what changed for students.
 
 OLD DESCRIPTION:
-{old_description if old_description else "(Empty)"}
+{old_description}
 
 NEW DESCRIPTION:  
 {new_description}
