@@ -1,6 +1,6 @@
 from typing import Any
 import requests
-from requests_ntlm import HttpNtlmAuth
+from requests_ntlm2 import HttpNtlmAuth
 from bs4 import BeautifulSoup, Tag
 from bs4.element import NavigableString
 import time
@@ -10,6 +10,42 @@ import dotenv
 import re
 from openai import OpenAI
 import copy
+
+# Patch for MD4 support in Python 3.13
+import hashlib
+
+try:
+    hashlib.new("md4")
+except ValueError:
+    # MD4 not available, try to use pycryptodome
+    try:
+        from Crypto.Hash import MD4
+
+        class MD4Wrapper:
+            def __init__(self, data=b""):
+                self._hash = MD4.new()
+                if data:
+                    self._hash.update(data)
+
+            def update(self, data):
+                self._hash.update(data)
+
+            def digest(self):
+                return self._hash.digest()
+
+            def hexdigest(self):
+                return self._hash.hexdigest()
+
+        original_new = hashlib.new
+
+        def patched_new(name, data=b""):
+            if name == "md4":
+                return MD4Wrapper(data)
+            return original_new(name, data)
+
+        hashlib.new = patched_new
+    except ImportError:
+        pass
 
 dotenv.load_dotenv()
 
