@@ -60,6 +60,9 @@ SEND_NOTIFICATIONS = os.getenv("SEND_NOTIFICATIONS", "true").lower() in (
     "yes",
 )
 USE_OPENAI = os.getenv("USE_OPENAI", "false").lower() in ("true", "1", "yes")
+MAX_RETRIES = int(os.getenv("MAX_RETRIES", "10"))  # Default to 10 retries
+RETRY_BASE_DELAY = int(os.getenv("RETRY_BASE_DELAY", "10"))  # 10 seconds
+RETRY_MAX_DELAY = int(os.getenv("RETRY_MAX_DELAY", "300"))  # 5 minutes
 
 if not USERNAME or not PASSWORD:
     exit("Environment variables GUC_USERNAME and GUC_PASSWORD must be set")
@@ -330,18 +333,44 @@ def send_notification(title: str, body: str, category: str) -> None:
         print(f"🔕 Notifications are disabled.")
         print(f"Title: {title}")
         print(f"Body: {body}")
+        print(f"Category: {category}")
         return
 
     payload = {"title": title, "body": body, "category": category}
-    try:
-        response = requests.post(
-            NOTIFICATION_ENDPOINT,
-            json=payload,
-            headers={"Authorization": f"Bearer {NOTIFICATIONS_API_KEY}"},
-        )
-        response.raise_for_status()
-    except requests.RequestException as e:
-        print(f"Failed to send notification: {e}")
+
+    # Retry configuration
+    max_retries = 5
+    base_delay = 1  # Start with 1 second
+    max_delay = 300  # Maximum delay of 5 minutes
+
+    for attempt in range(max_retries):
+        try:
+            print(
+                f"📤 Sending notification (attempt {attempt + 1}/{max_retries}): {title}"
+            )
+            response = requests.post(
+                NOTIFICATION_ENDPOINT,
+                json=payload,
+                headers={"Authorization": f"Bearer {NOTIFICATIONS_API_KEY}"},
+                timeout=30,  # Add timeout to prevent hanging
+            )
+            response.raise_for_status()
+            print(f"✅ Notification sent successfully: {title}")
+            return  # Success! Exit the function
+
+        except requests.RequestException as e:
+            if attempt == max_retries - 1:  # Last attempt
+                print(
+                    f"❌ Failed to send notification after {max_retries} attempts: {title}"
+                )
+                print(f"   Final error: {e}")
+                return
+
+            # Calculate delay with exponential backoff
+            delay = min(base_delay * (2**attempt), max_delay)
+            print(f"⚠️  Attempt {attempt + 1} failed: {e}")
+            print(f"🔄 Retrying in {delay} seconds...")
+            time.sleep(delay)
 
 
 def notify_description_change(
