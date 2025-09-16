@@ -130,9 +130,8 @@ def fetch_all_courses() -> list[tuple[str, str, int, int]]:
     return courses
 
 
-def fetch_page(course_id: int, season_id: int) -> BeautifulSoup:
-    """Fetch a specific course page."""
-    url = f"https://cms.guc.edu.eg/apps/student/CourseViewStn.aspx?id={course_id}&sid={season_id}"
+def fetch_page(url: str) -> BeautifulSoup:
+    """Fetch a specific page."""
     res = requests.get(url, auth=auth, headers={"User-Agent": "Mozilla/5.0"})
     if res.status_code == 401:
         exit("❌ Authentication failed")
@@ -325,7 +324,9 @@ def diff_files(
     return added
 
 
-def send_notification(title: str, body: str, category: str) -> None:
+def send_notification(
+    title: str, body: str, category: str, url: str | None = None
+) -> None:
     if not NOTIFICATION_ENDPOINT:
         return
 
@@ -337,6 +338,8 @@ def send_notification(title: str, body: str, category: str) -> None:
         return
 
     payload = {"title": title, "body": body, "category": category}
+    if url:
+        payload["url"] = url
 
     # Retry configuration
     max_retries = 5
@@ -374,17 +377,22 @@ def send_notification(title: str, body: str, category: str) -> None:
 
 
 def notify_description_change(
-    course_code: str, course_name: str, old_description: str, new_description: str
+    course_code: str,
+    course_name: str,
+    course_url: str,
+    old_description: str,
+    new_description: str,
 ) -> None:
     title, body = diff_description(old_description, new_description)
     send_notification(
-        f"({course_code}) {course_name} - {title}", body, "cms-description"
+        f"({course_code}) {course_name} - {title}", body, "cms-description", course_url
     )
 
 
 def notify_files_change(
     course_code: str,
     course_name: str,
+    course_url: str,
     old_files: list[dict[str, str]],
     new_files: list[dict[str, str]],
 ) -> None:
@@ -394,6 +402,7 @@ def notify_files_change(
             f"({course_code}) {course_name} - New file just dropped",
             f"{file['filename']} ({file['category']})",
             "cms-files",
+            course_url,
         )
 
 
@@ -414,7 +423,8 @@ while True:
         try:
             print(f"🔄 Checking ({course_code}) {course_name}...")
 
-            current_page = fetch_page(course_id, season_id)
+            course_url = f"https://cms.guc.edu.eg/apps/student/CourseViewStn.aspx?id={course_id}&sid={season_id}"
+            current_page = fetch_page(course_url)
 
             new_description = parse_description(current_page)
             new_files = parse_files(current_page)
@@ -425,13 +435,19 @@ while True:
             if new_description and old_description != new_description:
                 save_description_version(course_id, new_description)
                 notify_description_change(
-                    course_code, course_name, old_description, new_description
+                    course_code,
+                    course_name,
+                    course_url,
+                    old_description,
+                    new_description,
                 )
                 print(f"📝 Description changed for ({course_code}) {course_name}")
 
             if new_files and old_files != new_files:
                 save_files_version(course_id, new_files)
-                notify_files_change(course_code, course_name, old_files, new_files)
+                notify_files_change(
+                    course_code, course_name, course_url, old_files, new_files
+                )
                 print(f"📁 Files changed for ({course_code}) {course_name}")
 
         except Exception as e:
