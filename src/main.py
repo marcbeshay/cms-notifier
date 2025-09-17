@@ -63,6 +63,7 @@ USE_OPENAI = os.getenv("USE_OPENAI", "false").lower() in ("true", "1", "yes")
 MAX_RETRIES = int(os.getenv("MAX_RETRIES", "10"))  # Default to 10 retries
 RETRY_BASE_DELAY = int(os.getenv("RETRY_BASE_DELAY", "10"))  # 10 seconds
 RETRY_MAX_DELAY = int(os.getenv("RETRY_MAX_DELAY", "300"))  # 5 minutes
+POLLING_INTERVAL = int(os.getenv("POLLING_INTERVAL", "3600"))  # 1 hour
 
 if not USERNAME or not PASSWORD:
     exit("Environment variables GUC_USERNAME and GUC_PASSWORD must be set")
@@ -454,5 +455,5 @@ while True:
             print(f"❌ Error checking ({course_code}) {course_name}: {e}")
             continue
 
-    print("💤 Sleeping for 1 hour...")
-    time.sleep(3600)  # Check every hour
+    print(f"💤 Sleeping for {POLLING_INTERVAL} seconds...")
+    time.sleep(POLLING_INTERVAL)
